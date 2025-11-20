@@ -4,3 +4,6 @@ llama-index-llms-openai
 llama-index-embeddings-ollama
 llama-index-llms-groq
 python-dotenv
+ragas
+langchain-groq
+langchain-community
