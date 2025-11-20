@@ -64,12 +64,3 @@ class EmbedderRag:
             print("Index chargé avec succès.")
             
         return self.index
-
-# --- Intégration et exécution ---
-# Instancie la classe et charge ou construit l'index.
-rag_embedder_instance = EmbedderRag()
-index = rag_embedder_instance.build_or_load_index()
-
-if __name__ == '__main__':
-    print("\nLe script documents.py a été exécuté directement.")
-    print("L'index est prêt à l'emploi.")

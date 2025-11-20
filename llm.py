@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from llama_index.llms.groq import Groq
 from llama_index.core import Settings
+from documents import EmbedderRag
 
 # Charge les variables d'environnement à partir d'un fichier .env
 load_dotenv()
@@ -21,3 +22,18 @@ llm = Groq(model="openai/gpt-oss-20b", api_key=api_key)
 Settings.llm = llm
 
 print("LLM configuré avec l'API Groq (modèle 'openai/gpt-oss-20b').")
+
+
+# --- Intégration et exécution ---
+# Instancie la classe et charge ou construit l'index.
+rag_embedder_instance = EmbedderRag()
+index = rag_embedder_instance.build_or_load_index()
+
+query_engine = index.as_query_engine(similarity_top_k=3, response_mode="compact")
+response = query_engine.query("fidel est il diabetique ?")
+print(response)
+
+
+if __name__ == '__main__':
+    print("\nLe script documents.py a été exécuté directement.")
+    print("L'index est prêt à l'emploi.")
