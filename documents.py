@@ -1,3 +1,4 @@
+import os
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.core.indices.base import BaseIndex
@@ -8,8 +9,8 @@ class EmbedderRag:
     d'un VectorStoreIndex à partir de documents locaux.
     """
     def __init__(self, 
-                 model_name: str = 'royalpha/sentence-camembert-large', 
-                 directory_path: str = "./documents",
+                 model_name: str = 'bge-m3', 
+                 input_path: str = "./documents/2022_22.pdf",
                  chunk_size: int = 800,
                  chunk_overlap: int = 100):
         """
@@ -17,12 +18,12 @@ class EmbedderRag:
 
         Args:
             model_name (str): Le nom du modèle d'embedding Ollama.
-            directory_path (str): Le chemin vers le dossier contenant les documents.
+            input_path (str): Le chemin vers le dossier ou le fichier à charger.
             chunk_size (int): La taille des morceaux de texte (chunks).
             chunk_overlap (int): Le chevauchement entre les morceaux de texte.
         """
         self.model_name = model_name
-        self.directory_path = directory_path
+        self.input_path = input_path
         
         # Configuration du modèle d'embedding
         embed_model = OllamaEmbedding(
@@ -44,13 +45,21 @@ class EmbedderRag:
 
     def build_index(self) -> BaseIndex:
         """
-        Charge les documents et construit l'index vectoriel.
+        Charge le(s) document(s) et construit l'index vectoriel.
         
         Returns:
             BaseIndex: L'index vectoriel créé.
         """
-        print(f"Chargement des documents depuis '{self.directory_path}'...")
-        documents = SimpleDirectoryReader(self.directory_path).load_data()
+        print(f"Chargement du document depuis '{self.input_path}'...")
+        
+        if os.path.isdir(self.input_path):
+            # Charge tous les fichiers d'un répertoire
+            reader = SimpleDirectoryReader(input_dir=self.input_path)
+        else:
+            # Charge un fichier unique
+            reader = SimpleDirectoryReader(input_files=[self.input_path])
+        
+        documents = reader.load_data()
         
         print("Création de l'index vectoriel...")
         self.index = VectorStoreIndex.from_documents(documents)
@@ -58,3 +67,12 @@ class EmbedderRag:
         
         return self.index
 
+# --- Intégration pour la compatibilité ---
+# Instancie la classe et construit l'index pour qu'il soit directement disponible
+# comme la variable 'index' de l'ancien script, si d'autres modules l'importent.
+rag_embedder_instance = EmbedderRag()
+index = rag_embedder_instance.build_index()
+
+if __name__ == '__main__':
+    print("\nLe script documents.py a été exécuté directement.")
+    print("L'index a été construit et est disponible via la variable 'index'.")

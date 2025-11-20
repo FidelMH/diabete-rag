@@ -3,7 +3,7 @@
 pip install -r requirements.txt
 
 ## Ollama /embedder model
-ollama pull royalpha/sentence-camembert-large
+ollama pull bge-m3
 
 ## Documents
 mettre les documents dans un dossier documents à la racine
