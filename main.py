@@ -9,7 +9,7 @@ def main():
         # 1. Initialiser le LLM. 
         # Note: LlmManager applique le LLM aux Settings globaux lors de son initialisation.
         # J'utilise le modèle que vous aviez mis dans votre fichier llm.py.
-        LlmManager(model_name="openai/gpt-oss-20b")
+        LlmManager()
 
         # 2. Construire ou charger l'index des documents.
         # J'ai remis le chemin vers le dossier, comme dans votre dernier fichier.

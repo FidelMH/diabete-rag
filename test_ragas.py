@@ -11,14 +11,18 @@ import os
 from dotenv import load_dotenv
 from documents import EmbedderRag
 
-from llama_index.core import SimpleDirectoryReader
-from langchain_groq import ChatGroq
-from langchain_community.embeddings import OllamaEmbeddings
-
+from llama_index.core import SimpleDirectoryReader, Settings
+from llama_index.llms.openai_like import OpenAILike
+from llama_index.embeddings.ollama import OllamaEmbedding
+from llama_index.llms.ollama import Ollama
+from llama_index.core.node_parser import SentenceSplitter
 from ragas.testset import TestsetGenerator
 from ragas.integrations.llama_index import evaluate
-from ragas.llms import LangchainLLMWrapper
+# from ragas.llms import LangchainLLMWrapper
+from ragas import embeddings
+from ragas.llms import LlamaIndexLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
+from langchain_ollama import OllamaEmbeddings as LangchainOllamaEmbeddings
 from ragas.metrics import (
     Faithfulness,
     AnswerRelevancy,
@@ -28,10 +32,19 @@ from ragas.metrics import (
 
 # Charger les variables d'environnement
 load_dotenv()
-API_KEY = os.getenv("GROQ_API_KEY")
+API_KEY = os.getenv("API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL") 
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
 
 if not API_KEY:
-    raise ValueError("La clé GROQ_API_KEY n'est pas définie dans le fichier .env")
+    raise ValueError("La clé API_KEY n'est pas définie dans le fichier .env")
+if not API_BASE_URL:
+    raise ValueError("API_BASE_URL non trouvée dans le fichier .env")
+if not EMBEDDING_MODEL_NAME:
+    raise ValueError("EMBEDDING_MODEL_NAME n'est pas définie dans le fichier .env")
+if not LLM_MODEL_NAME:
+    raise ValueError("LLM_MODEL_NAME n'est pas définie dans le fichier .env")
 
 
 class RAGEvaluator:
@@ -42,8 +55,8 @@ class RAGEvaluator:
     def __init__(
         self,
         documents_path: str = "./documents",
-        model_name: str = "openai/gpt-oss-20b",
-        embed_model_name: str = "bge-m3",
+        model_name: str = LLM_MODEL_NAME ,
+        embed_model_name: str = EMBEDDING_MODEL_NAME,
         testset_size: int = 5
     ):
         """
@@ -61,15 +74,23 @@ class RAGEvaluator:
         self.testset_size = testset_size
 
         # Initialiser le LLM Groq pour l'évaluation (LangChain)
-        self.llm = ChatGroq(
+        self.llm = OpenAILike(
             model=self.model_name,
             api_key=API_KEY,
-            temperature=0.3
+            api_base=API_BASE_URL,
+            temperature=0.3,
+            is_chat_model=True
         )
+        Settings.llm = self.llm
+        # self.llm = Ollama(
+        #     model=self.model_name,
+        #     temperature=0.3,
+        #     is_chat_model=True
+        # )
 
         # Initialiser le modèle d'embedding local (LangChain)
-        self.embed_model = OllamaEmbeddings(
-            model=self.embed_model_name,
+        self.embed_model = OllamaEmbedding(
+            model_name=self.embed_model_name,
         )
 
         print(f"✓ LLM initialisé: {self.model_name}")
@@ -87,17 +108,24 @@ class RAGEvaluator:
         print(f"✓ {len(documents)} document(s) chargé(s)")
 
         print(f"\n🔧 Initialisation du générateur de testset...")
-        # Wrapper les modèles LangChain pour RAGAS
-        generator_llm = LangchainLLMWrapper(self.llm)
-        generator_embeddings = LangchainEmbeddingsWrapper(self.embed_model)
+        # # Wrapper les modèles LangChain pour RAGAS
+        # generator_llm = LangchainLLMWrapper(self.llm)
+        # generator_embeddings = LangchainEmbeddingsWrapper(self.embed_model)
 
-        generator = TestsetGenerator(
-            llm=generator_llm,
-            embedding_model=generator_embeddings,
+        generator = TestsetGenerator.from_llama_index(
+            llm=self.llm,
+            embedding_model=self.embed_model,
         )
 
         print(f"\n⚙️  Génération de {self.testset_size} questions de test...")
         print("   (Cette opération peut prendre quelques minutes)")
+
+        # Add empty headlines metadata to avoid HeadlineSplitter error
+        # PDF documents don't have structured headlines by default
+        for doc in documents:
+            if 'headlines' not in doc.metadata:
+                doc.metadata['headlines'] = []
+
         testset = generator.generate_with_llamaindex_docs(
             documents,
             testset_size=self.testset_size,
@@ -124,14 +152,20 @@ class RAGEvaluator:
         index = embedder.build_or_load_index()
 
         print(f"\n🔍 Création du QueryEngine...")
-        query_engine = index.as_query_engine()
+        query_engine = index.as_query_engine(llm=self.llm)
 
         print(f"\n📊 Configuration des métriques d'évaluation...")
-        evaluator_llm = LangchainLLMWrapper(self.llm)
+        evaluator_llm = LlamaIndexLLMWrapper(self.llm)
+
+        # Configuration du modèle d'embedding pour RAGAS
+        # RAGAS utilise Langchain pour les embeddings, nous devons donc wrapper notre modèle
+        ragas_embeddings = LangchainEmbeddingsWrapper(
+            LangchainOllamaEmbeddings(model=self.embed_model_name)
+        )
 
         metrics = [
             Faithfulness(llm=evaluator_llm),
-            AnswerRelevancy(llm=evaluator_llm),
+            AnswerRelevancy(llm=evaluator_llm, embeddings=ragas_embeddings),
             ContextPrecision(llm=evaluator_llm),
             ContextRecall(llm=evaluator_llm),
         ]
@@ -164,14 +198,16 @@ class RAGEvaluator:
         print("📈 RÉSULTATS DE L'ÉVALUATION")
         print("="*60)
 
-        # Afficher les scores globaux
-        if hasattr(result, 'scores'):
-            print("\n🎯 Scores moyens:")
-            for metric, score in result.scores.items():
-                print(f"   {metric}: {score:.4f}")
-
-        # Convertir en DataFrame pour une vue détaillée
         df = result.to_pandas()
+
+        # Afficher les scores globaux (moyenne de chaque métrique)
+        if not df.empty:
+            print("\n🎯 Scores moyens:")
+            # Calculate the mean for numeric columns only
+            for metric in df.select_dtypes(include='number').columns:
+                mean_score = df[metric].mean(skipna=True)
+                print(f"   {metric}: {mean_score:.4f}")
+
         print("\n📋 Résultats détaillés:")
         print(df.to_string())
 
@@ -194,9 +230,9 @@ def main():
     # Initialiser l'évaluateur
     evaluator = RAGEvaluator(
         documents_path="./documents",
-        model_name="openai/gpt-oss-20b",  # Modèle Groq
-        embed_model_name="bge-m3",  # Modèle d'embedding local
-        testset_size=5  # Nombre de questions à générer
+        # model_name="openai/gpt-oss-20b",  # Modèle Groq
+        # embed_model_name="bge-m3",  # Modèle d'embedding local
+        testset_size=2  # Nombre de questions à générer
     )
 
     # Générer le testset
