@@ -8,22 +8,25 @@ Ce script permet d'évaluer la qualité du système RAG en utilisant :
 """
 
 import os
+import sys
+
+# Fix Windows console encoding for emojis
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
 from dotenv import load_dotenv
 from documents import EmbedderRag
 from text_cleaner import TextCleaner
+from embedding_manager import EmbeddingManager
+from llm import LlmManager
 
 from llama_index.core import SimpleDirectoryReader, Settings
-from llama_index.llms.openai_like import OpenAILike
-from llama_index.embeddings.ollama import OllamaEmbedding
-from llama_index.llms.ollama import Ollama
+from llama_index.core.schema import Document
 from llama_index.core.node_parser import SentenceSplitter
 from ragas.testset import TestsetGenerator
 from ragas.integrations.llama_index import evaluate
-# from ragas.llms import LangchainLLMWrapper
-from ragas import embeddings
 from ragas.llms import LlamaIndexLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
-from langchain_ollama import OllamaEmbeddings as LangchainOllamaEmbeddings
+from langchain_openai import OpenAIEmbeddings as LangchainOpenAIEmbeddings
 from ragas.metrics import (
     Faithfulness,
     AnswerRelevancy,
@@ -33,19 +36,6 @@ from ragas.metrics import (
 
 # Charger les variables d'environnement
 load_dotenv()
-API_KEY = os.getenv("API_KEY")
-API_BASE_URL = os.getenv("API_BASE_URL") 
-EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
-
-if not API_KEY:
-    raise ValueError("La clé API_KEY n'est pas définie dans le fichier .env")
-if not API_BASE_URL:
-    raise ValueError("API_BASE_URL non trouvée dans le fichier .env")
-if not EMBEDDING_MODEL_NAME:
-    raise ValueError("EMBEDDING_MODEL_NAME n'est pas définie dans le fichier .env")
-if not LLM_MODEL_NAME:
-    raise ValueError("LLM_MODEL_NAME n'est pas définie dans le fichier .env")
 
 
 class RAGEvaluator:
@@ -56,46 +46,34 @@ class RAGEvaluator:
     def __init__(
         self,
         documents_path: str = "./documents",
-        model_name: str = LLM_MODEL_NAME ,
-        embed_model_name: str = EMBEDDING_MODEL_NAME,
-        testset_size: int = 5
+        testset_size: int = 5,
+        convert_to_nodes: bool = True,
+        chunk_size: int = 800,
+        chunk_overlap: int = 100
     ):
         """
         Initialise l'évaluateur RAG.
 
         Args:
             documents_path: Chemin vers les documents
-            model_name: Modèle Groq pour l'évaluation
-            embed_model_name: Modèle d'embedding Ollama
             testset_size: Nombre de questions de test à générer
+            convert_to_nodes: Si True, convertit les documents en chunks avant RAGAS
+            chunk_size: Taille des chunks pour SentenceSplitter (match EmbedderRag)
+            chunk_overlap: Chevauchement entre chunks (match EmbedderRag)
         """
         self.documents_path = documents_path
-        self.model_name = model_name
-        self.embed_model_name = embed_model_name
         self.testset_size = testset_size
+        self.convert_to_nodes = convert_to_nodes
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
 
-        # Initialiser le LLM Groq pour l'évaluation (LangChain)
-        self.llm = OpenAILike(
-            model=self.model_name,
-            api_key=API_KEY,
-            api_base=API_BASE_URL,
-            temperature=0.3,
-            is_chat_model=True
-        )
-        Settings.llm = self.llm
-        # self.llm = Ollama(
-        #     model=self.model_name,
-        #     temperature=0.3,
-        #     is_chat_model=True
-        # )
+        # Initialiser le LLM et l'Embedding Model via les managers
+        # Cela configure les Settings globaux de LlamaIndex
+        self.llm_manager = LlmManager()
+        self.embedding_manager = EmbeddingManager()
 
-        # Initialiser le modèle d'embedding local (LangChain)
-        self.embed_model = OllamaEmbedding(
-            model_name=self.embed_model_name,
-        )
-
-        print(f"✓ LLM initialisé: {self.model_name}")
-        print(f"✓ Embedding initialisé: {self.embed_model_name}")
+        self.llm = Settings.llm
+        self.embed_model = Settings.embed_model
 
     def generate_testset(self):
         """
@@ -115,7 +93,35 @@ class RAGEvaluator:
             remove_urls=True,
             normalize_medical=False
         )
-        print("✓ Documents nettoyés (métadonnées headlines ajoutées)")
+        print("✓ Documents nettoyés")
+
+        # Convertir les documents en chunks plus petits si activé (pour éviter l'erreur headlines)
+        if self.convert_to_nodes:
+            print("\n🔧 Conversion des documents en chunks...")
+            splitter = SentenceSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+            )
+            nodes = splitter.get_nodes_from_documents(documents)
+
+            # Convertir les nodes en Documents avec métadonnées headlines
+            chunked_documents = []
+            for node in nodes:
+                # Créer un nouveau Document à partir du node
+                chunk_doc = Document(
+                    text=node.get_content(),
+                    metadata={
+                        **node.metadata,
+                        'headlines': []  # Garantir la présence de headlines
+                    }
+                )
+                chunked_documents.append(chunk_doc)
+
+            print(f"✓ {len(chunked_documents)} chunks créés avec métadonnées headlines")
+            input_data = chunked_documents
+        else:
+            print("⚠️  Mode documents (pas de pre-chunking)")
+            input_data = documents
 
         print(f"\n🔧 Initialisation du générateur de testset...")
         # # Wrapper les modèles LangChain pour RAGAS
@@ -128,11 +134,13 @@ class RAGEvaluator:
         )
 
         print(f"\n⚙️  Génération de {self.testset_size} questions de test...")
+        print(f"   Mode: {'Nodes' if self.convert_to_nodes else 'Documents'}")
         print("   (Cette opération peut prendre quelques minutes)")
 
         testset = generator.generate_with_llamaindex_docs(
-            documents,
+            input_data,
             testset_size=self.testset_size,
+            transforms=[],  # Désactive HeadlinesExtractor et HeadlineSplitter
         )
 
         print(f"✓ Testset généré avec succès!")
@@ -150,7 +158,6 @@ class RAGEvaluator:
         """
         print(f"\n🏗️  Construction de l'index vectoriel...")
         embedder = EmbedderRag(
-            model_name=self.embed_model_name,
             input_path=self.documents_path
         )
         index = embedder.build_or_load_index()
@@ -236,7 +243,8 @@ def main():
         documents_path="./documents",
         # model_name="openai/gpt-oss-20b",  # Modèle Groq
         # embed_model_name="bge-m3",  # Modèle d'embedding local
-        testset_size=2  # Nombre de questions à générer
+        testset_size=2,  # Nombre de questions à générer
+        convert_to_nodes=True  # Pre-chunking pour éviter l'erreur headlines
     )
 
     # Générer le testset

@@ -1,5 +1,4 @@
 import os
-from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core import (
     VectorStoreIndex,
     SimpleDirectoryReader,
@@ -9,13 +8,13 @@ from llama_index.core import (
 )
 from llama_index.core.indices.base import BaseIndex
 from text_cleaner import TextCleaner, get_document_stats
+from embedding_manager import EmbeddingManager
 
 class EmbedderRag:
     """
     Classe modifiée pour gérer la persistance de l'index avec nettoyage des documents.
     """
     def __init__(self,
-                 model_name: str = 'bge-m3',
                  input_path: str = "./documents",
                  persist_dir: str = "./storage",
                  chunk_size: int = 800,
@@ -27,7 +26,6 @@ class EmbedderRag:
         Initialise l'EmbedderRag avec les configurations nécessaires.
 
         Args:
-            model_name: Nom du modèle d'embedding Ollama
             input_path: Chemin vers les documents
             persist_dir: Dossier pour la persistance de l'index
             chunk_size: Taille des chunks pour le découpage
@@ -36,24 +34,19 @@ class EmbedderRag:
             remove_urls: Si True, supprime les URLs et emails
             normalize_medical: Si True, normalise les termes médicaux
         """
-        self.model_name = model_name
         self.input_path = input_path
         self.persist_dir = persist_dir
         self.clean_text = clean_text
         self.remove_urls = remove_urls
         self.normalize_medical = normalize_medical
-        
-        # Configuration du modèle d'embedding
-        embed_model = OllamaEmbedding(
-            model_name=self.model_name,
-            ollama_additional_kwargs={"options": {"num_gpu": 0, "gpu_layers": 0}}
-        )
-        
+
+        # Configuration générique du modèle d'embedding via le manager
+        EmbeddingManager()
+
         # Application des paramètres globaux à LlamaIndex
-        Settings.embed_model = embed_model
         Settings.chunk_size = chunk_size
         Settings.chunk_overlap = chunk_overlap
-        
+
         self.index: BaseIndex | None = None
 
     def build_or_load_index(self) -> BaseIndex:
