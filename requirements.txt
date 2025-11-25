@@ -8,3 +8,4 @@ python-dotenv
 ragas
 langchain-groq
 langchain-community
+streamlit

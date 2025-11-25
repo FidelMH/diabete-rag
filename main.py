@@ -18,7 +18,7 @@ def main():
 
         # 3. Créer le moteur de requête avec vos paramètres optimisés.
         print("\nCréation du moteur de recherche (query engine)...")
-        query_engine = index.as_query_engine(similarity_top_k=3, response_mode="compact")
+        query_engine = index.as_query_engine(similarity_top_k=5, response_mode="compact")
         print("Le moteur de recherche est prêt.")
         
         # 4. Lancer la boucle interactive pour poser des questions.

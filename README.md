@@ -25,7 +25,21 @@ API_KEY=votre_clé_api_ici
 
 ## Utilisation
 
-### Créer l'index vectoriel
+### Lancer l'application Streamlit (Interface Web)
+```bash
+streamlit run app.py
+```
+L'application se lancera dans votre navigateur. Vous pourrez :
+- Poser des questions sur le diabète via une interface de chat
+- Voir l'historique de conversation
+- Consulter les sources utilisées pour générer les réponses
+
+### Utiliser la ligne de commande (CLI)
+```bash
+python main.py
+```
+
+### Créer l'index vectoriel (programmation)
 ```python
 from documents import EmbedderRag
 
@@ -56,7 +70,10 @@ Cette commande va :
 diabete-rag/
 ├── documents/           # Documents PDF à indexer
 ├── storage/            # Index vectoriel persistant
+├── app.py              # Application Streamlit (Frontend Web)
+├── main.py             # Interface CLI
 ├── documents.py        # Classe pour créer l'index
+├── llm.py              # Gestionnaire du LLM
 ├── test_ragas.py       # Évaluation avec RAGAS
 ├── requirements.txt    # Dépendances Python
 └── .env               # Variables d'environnement (clé API)
