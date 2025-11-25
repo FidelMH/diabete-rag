@@ -236,7 +236,7 @@ def main():
         documents_path="./documents",
         # model_name="openai/gpt-oss-20b",  # Modèle Groq
         # embed_model_name="bge-m3",  # Modèle d'embedding local
-        testset_size=8  # Nombre de questions à générer
+        testset_size=2  # Nombre de questions à générer
     )
 
     # Générer le testset
