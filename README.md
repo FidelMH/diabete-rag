@@ -120,18 +120,9 @@ diabete-rag/
 
 Le système intègre désormais un nettoyage automatique des documents PDF pour améliorer la qualité des réponses :
 
-### Problèmes résolus :
-- ✅ **Erreurs headlines dans RAGAS** - Les métadonnées manquantes sont ajoutées automatiquement
 - ✅ **Headers/footers répétitifs** - Détection et suppression automatique
 - ✅ **Numéros de page** - Suppression des numéros de page parasites
 - ✅ **Caractères spéciaux** - Normalisation des espaces insécables, apostrophes, etc.
 - ✅ **Mots coupés** - Correction des mots séparés par des tirets en fin de ligne
 - ✅ **URLs et emails** - Suppression optionnelle
 - ✅ **Termes médicaux** - Normalisation optionnelle des abréviations
-
-### Amélioration de la qualité :
-Le nettoyage améliore la qualité des embeddings et des réponses du système RAG en :
-- Réduisant le bruit dans les documents (10-20% de réduction typique)
-- Améliorant la cohérence du texte
-- Facilitant la recherche sémantique
-- Évitant les erreurs lors de l'évaluation RAGAS

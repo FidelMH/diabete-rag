@@ -18,3 +18,4 @@ pypdf>=3.0.0
 
 # Performance optimization
 numpy>=1.24.0
+

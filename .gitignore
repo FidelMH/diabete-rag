@@ -144,4 +144,5 @@ cython_debug/
 
 # Project specific
 /back
-/storage
+/documents
+# /storage
