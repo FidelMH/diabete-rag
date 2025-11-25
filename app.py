@@ -73,7 +73,7 @@ def main():
 
         Ce système utilise :
         - LlamaIndex pour l'indexation
-        - Ollama (bge-m3) pour les embeddings
+        - Azure OpenAI (text-embedding-3-large) pour les embeddings
         - Documents médicaux sur le diabète
 
         ---
