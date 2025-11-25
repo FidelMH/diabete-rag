@@ -10,6 +10,7 @@ Ce script permet d'évaluer la qualité du système RAG en utilisant :
 import os
 from dotenv import load_dotenv
 from documents import EmbedderRag
+from text_cleaner import TextCleaner
 
 from llama_index.core import SimpleDirectoryReader, Settings
 from llama_index.llms.openai_like import OpenAILike
@@ -107,6 +108,15 @@ class RAGEvaluator:
         documents = SimpleDirectoryReader(self.documents_path).load_data()
         print(f"✓ {len(documents)} document(s) chargé(s)")
 
+        # Nettoyer les documents pour améliorer la qualité du testset
+        print("\n🧹 Nettoyage des documents...")
+        documents = TextCleaner.clean_documents(
+            documents,
+            remove_urls=True,
+            normalize_medical=False
+        )
+        print("✓ Documents nettoyés (métadonnées headlines ajoutées)")
+
         print(f"\n🔧 Initialisation du générateur de testset...")
         # # Wrapper les modèles LangChain pour RAGAS
         # generator_llm = LangchainLLMWrapper(self.llm)
@@ -119,12 +129,6 @@ class RAGEvaluator:
 
         print(f"\n⚙️  Génération de {self.testset_size} questions de test...")
         print("   (Cette opération peut prendre quelques minutes)")
-
-        # Add empty headlines metadata to avoid HeadlineSplitter error
-        # PDF documents don't have structured headlines by default
-        for doc in documents:
-            if 'headlines' not in doc.metadata:
-                doc.metadata['headlines'] = []
 
         testset = generator.generate_with_llamaindex_docs(
             documents,
@@ -232,7 +236,7 @@ def main():
         documents_path="./documents",
         # model_name="openai/gpt-oss-20b",  # Modèle Groq
         # embed_model_name="bge-m3",  # Modèle d'embedding local
-        testset_size=2  # Nombre de questions à générer
+        testset_size=8  # Nombre de questions à générer
     )
 
     # Générer le testset

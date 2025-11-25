@@ -145,6 +145,13 @@ def main():
                         "content": error_msg
                     })
 
+    # Disclaimer sanitaire
+    st.info("""
+        **Avertissement :** Ce chatbot est fourni à titre informatif uniquement et ne constitue en aucun cas un avis médical ou un dispositif médical.
+        Il ne remplace pas une consultation, un diagnostic ou un traitement dispensé par un professionnel de santé qualifié.
+        Pour toute question de santé, consultez toujours votre médecin.
+    """)
+
 
 if __name__ == "__main__":
     main()
