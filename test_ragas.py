@@ -1,10 +1,10 @@
 """
-Test et évaluation du système RAG avec RAGAS.
+Test and evaluation of the RAG system with RAGAS.
 
-Ce script permet d'évaluer la qualité du système RAG en utilisant :
-- Génération automatique d'un dataset de test
-- Métriques RAGAS (Faithfulness, Answer Relevancy, Context Precision/Recall)
-- LLM externe (Groq/OpenAI) pour une évaluation de qualité
+This script evaluates RAG system quality using:
+- Automatic test dataset generation
+- RAGAS metrics (Faithfulness, Answer Relevancy, Context Precision/Recall)
+- External LLM (Azure OpenAI) for quality evaluation
 """
 
 import os
@@ -238,13 +238,11 @@ def main():
     print("🧪 ÉVALUATION RAG AVEC RAGAS")
     print("="*60)
 
-    # Initialiser l'évaluateur
+    # Initialize evaluator
     evaluator = RAGEvaluator(
         documents_path="./documents",
-        # model_name="openai/gpt-oss-20b",  # Modèle Groq
-        # embed_model_name="bge-m3",  # Modèle d'embedding local
-        testset_size=2,  # Nombre de questions à générer
-        convert_to_nodes=True  # Pre-chunking pour éviter l'erreur headlines
+        testset_size=2,  # Number of questions to generate
+        convert_to_nodes=True  # Pre-chunking to avoid headlines error
     )
 
     # Générer le testset

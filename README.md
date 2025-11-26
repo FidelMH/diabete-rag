@@ -1,55 +1,21 @@
 # Diabète RAG
 
-Système RAG (Retrieval Augmented Generation) pour répondre aux questions sur le diabète à partir de documents médicaux.
+RAG (Retrieval Augmented Generation) system for answering questions about diabetes from medical documents.
 
-## 🚀 Démarrage Rapide
+## 🚀 Quick Start
+
+### 1. Installation
 
 ```bash
-# 1. Cloner et installer
-git clone <repository-url>
+git clone [<repository-url>](https://github.com/FidelMH/diabete-rag)
 cd diabete-rag
 pip install -r requirements.txt
-
-# 2. Configurer les variables d'environnement
-cp .env.example .env
-# Éditez .env avec votre clé API
-
-# 3. Ajouter vos documents PDF
-mkdir documents
-# Placez vos PDFs dans le dossier documents/
-
-# 4. Lancer l'application
-streamlit run app.py
 ```
 
-Votre application web s'ouvrira automatiquement dans votre navigateur !
+### 2. Configuration
 
-## Installation
+Copy `.env.example` to `.env`:
 
-### 1. Cloner le projet
-```bash
-git clone <repository-url>
-cd diabete-rag
-```
-
-### 2. Créer un environnement virtuel (recommandé)
-```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# Linux/MacOS
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Installer les dépendances
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configuration des variables d'environnement
-Copier le fichier [.env.example](.env.example) et le renommer en `.env`:
 ```bash
 # Windows
 copy .env.example .env
@@ -58,225 +24,206 @@ copy .env.example .env
 cp .env.example .env
 ```
 
-Ensuite, éditez le fichier `.env` et choisissez l'une des configurations suivantes:
+Edit `.env` and configure your settings. Choose one of the following:
 
-#### Option A : Azure OpenAI (Recommandé pour la production)
+**Option A: Azure OpenAI (Recommended for production)**
 ```env
-API_KEY=your_azure_api_key_here
-API_BASE_URL=https://your-resource.openai.azure.com/openai/v1/
-LLM_MODEL_NAME=gpt-4
+# Embeddings
+EMBEDDING_PROVIDER=azure
+EMBEDDING_API_KEY=your_azure_key
+EMBEDDING_API_BASE=https://your-resource.openai.azure.com/openai/v1/
 EMBEDDING_MODEL_NAME=text-embedding-3-large
+
+# LLM
+LLM_API_KEY=your_azure_key
+LLM_API_BASE=https://your-resource.openai.azure.com/openai/v1/
+LLM_MODEL_NAME=gpt-4
 ```
 
-#### Option B : Groq (Rapide et gratuit)
+**Option B: Local Embeddings + Azure LLM (Development/Cost optimization)**
 ```env
-API_KEY=gsk_your_groq_api_key_here
-API_BASE_URL=https://api.groq.com/openai/v1
-LLM_MODEL_NAME=llama-3.1-70b-versatile
-EMBEDDING_MODEL_NAME=bge-m3
+# Embeddings (local)
+EMBEDDING_PROVIDER=local
+EMBEDDING_MODEL_NAME=BAAI/bge-large-en-v1.5
+EMBEDDING_DEVICE=cpu
+
+# LLM (Azure)
+LLM_API_KEY=your_azure_key
+LLM_API_BASE=https://your-resource.openai.azure.com/openai/v1/
+LLM_MODEL_NAME=gpt-4
 ```
 
-### 5. Préparer les documents
-Créer un dossier `documents/` à la racine du projet et y placer vos documents PDF:
+**For local embeddings, install additional dependencies:**
+```bash
+pip install sentence-transformers torch
+```
+
+### 3. Add Documents
+
 ```bash
 mkdir documents
-# Copier vos fichiers PDF dans ce dossier
+# Place your PDF files in the documents/ folder
 ```
 
-**Optionnel :** Analyser les documents avant indexation
-```bash
-python preprocess_pdfs.py --preview
-```
-Cette commande affiche des statistiques sur vos documents, détecte les problèmes potentiels et recommande les meilleures options de nettoyage.
+### 4. Run the Application
 
-## Utilisation
-
-### Lancer l'application Streamlit (Interface Web)
+**Web Interface (Streamlit):**
 ```bash
 streamlit run app.py
 ```
-L'application se lancera dans votre navigateur. Vous pourrez :
-- Poser des questions sur le diabète via une interface de chat
-- Voir l'historique de conversation
-- Consulter les sources utilisées pour générer les réponses
 
-### Utiliser la ligne de commande (CLI)
+**Command Line:**
 ```bash
 python main.py
 ```
 
-### Créer l'index vectoriel (programmation)
-```python
-from documents import EmbedderRag
+## 🧪 Quick Test
 
-embedder = EmbedderRag(
-    model_name="bge-m3",
-    input_path="./documents",
-    clean_text=True,           # Active le nettoyage automatique des PDFs
-    remove_urls=True,          # Supprime les URLs et emails
-    normalize_medical=False    # Normalise les termes médicaux (optionnel)
-)
+Test the system with a simple question:
+
+```bash
+python -c "
+from documents import EmbedderRag
+from llm import LlmManager
+
+# Initialize
+LlmManager()
+embedder = EmbedderRag(input_path='./documents')
 index = embedder.build_or_load_index()
+
+# Query
+engine = index.as_query_engine(similarity_top_k=5)
+response = engine.query('What is diabetes?')
+print(response)
+"
 ```
 
-**Options de nettoyage disponibles :**
-- `clean_text=True` : Active le nettoyage automatique (recommandé)
-  - Suppression des headers/footers répétitifs
-  - Normalisation des espaces et sauts de ligne
-  - Suppression des numéros de page
-  - Correction des mots coupés (hyphenation)
-  - Nettoyage des caractères spéciaux
-- `remove_urls=True` : Supprime les URLs et emails
-- `normalize_medical=True` : Normalise les abréviations médicales (DT1 → diabète de type 1, etc.)
+## ⚙️ Configuration Guide
 
-### Analyser et prétraiter les documents
+### Embedding Providers
+
+#### Azure OpenAI (Cloud)
+- Production-ready, scalable
+- Requires Azure subscription
+- Best quality for multilingual content
+- Models: `text-embedding-3-large`, `text-embedding-3-small`
+
+#### HuggingFace (Local)
+- Free, runs on your machine
+- No API costs
+- Slower on CPU, fast on GPU
+- Recommended models:
+  - `BAAI/bge-large-en-v1.5` - Best quality (English)
+  - `sentence-transformers/all-MiniLM-L6-v2` - Fast, good quality
+  - `intfloat/multilingual-e5-large` - Multilingual support
+
+### LLM Configuration
+
+Only Azure OpenAI is supported for the LLM.
+
+**Temperature settings:**
+- `0.1-0.3`: Highly factual medical responses (recommended)
+- `0.5-0.7`: Balanced responses
+- `0.8-1.0`: More creative, conversational
+
+Modify in your code:
+```python
+LlmManager(temperature=0.3)  # More factual
+```
+
+### Document Processing
+
+The system includes automatic PDF cleaning:
+
+```python
+embedder = EmbedderRag(
+    input_path="./documents",
+    clean_text=True,           # Remove headers, footers, page numbers
+    remove_urls=True,          # Remove URLs and emails
+    normalize_medical=False    # Normalize medical abbreviations
+)
+```
+
+Preview document statistics before indexing:
 ```bash
 python preprocess_pdfs.py --preview
 ```
 
-Cette commande permet de :
-- Afficher des statistiques sur les documents (nombre de mots, caractères, etc.)
-- Comparer avant/après le nettoyage
-- Détecter les problèmes potentiels (lignes répétitives, URLs, etc.)
-- Obtenir des recommandations sur les options de nettoyage à utiliser
+## 📁 Project Structure
 
-Options disponibles :
-- `--path ./documents` : Spécifier le dossier des documents
-- `--preview` : Afficher un aperçu détaillé de chaque document
+```
+diabete-rag/
+├── documents/              # Your PDF documents
+├── storage/               # Vector index (auto-created)
+├── app.py                 # Streamlit web interface
+├── main.py                # CLI interface
+├── embedding_manager.py   # Universal embedding configuration
+├── llm.py                 # LLM configuration
+├── documents.py           # Document indexing with cleaning
+├── text_cleaner.py        # PDF preprocessing
+├── preprocess_pdfs.py     # Document analysis tool
+├── test_ragas.py          # RAG evaluation with RAGAS
+└── requirements.txt       # Dependencies
+```
 
-### Évaluer le système RAG avec RAGAS
+## 📊 Evaluation
+
+Evaluate RAG quality with RAGAS metrics:
+
 ```bash
 python test_ragas.py
 ```
 
-Cette commande va :
-1. Nettoyer automatiquement les documents (résout les erreurs headlines)
-2. Générer automatiquement des questions de test à partir de vos documents
-3. Évaluer votre système RAG avec 4 métriques :
-   - **Faithfulness** : Fidélité de la réponse aux documents
-   - **Answer Relevancy** : Pertinence de la réponse
-   - **Context Precision** : Précision du contexte récupéré
-   - **Context Recall** : Rappel du contexte pertinent
-4. Sauvegarder les résultats dans `ragas_evaluation_results.csv`
+**Metrics:**
+- **Faithfulness**: Answer accuracy vs source documents
+- **Answer Relevancy**: Response relevance to question
+- **Context Precision**: Retrieved context accuracy
+- **Context Recall**: Coverage of relevant information
 
-## Structure du projet
+Results saved to `ragas_evaluation_results.csv`
 
-```
-diabete-rag/
-├── documents/           # Documents PDF à indexer
-├── storage/            # Index vectoriel persistant (créé automatiquement)
-├── app.py              # Application Streamlit (Frontend Web)
-├── main.py             # Interface CLI
-├── documents.py        # Classe pour créer l'index avec nettoyage
-├── llm.py              # Gestionnaire du LLM
-├── text_cleaner.py     # Module de nettoyage et prétraitement des PDFs
-├── preprocess_pdfs.py  # Script d'analyse des documents
-├── test_ragas.py       # Évaluation avec RAGAS (avec nettoyage intégré)
-├── requirements.txt    # Dépendances Python
-└── .env               # Variables d'environnement (clé API)
-```
+## 🚀 Azure Deployment
 
-## Fonctionnalités de nettoyage des PDFs
+See [DEPLOY_AZURE.md](DEPLOY_AZURE.md) for Azure App Service deployment instructions.
 
-Le système intègre désormais un nettoyage automatique des documents PDF pour améliorer la qualité des réponses :
+## ❓ Troubleshooting
 
-- ✅ **Headers/footers répétitifs** - Détection et suppression automatique
-- ✅ **Numéros de page** - Suppression des numéros de page parasites
-- ✅ **Caractères spéciaux** - Normalisation des espaces insécables, apostrophes, etc.
-- ✅ **Mots coupés** - Correction des mots séparés par des tirets en fin de ligne
-- ✅ **URLs et emails** - Suppression optionnelle
-- ✅ **Termes médicaux** - Normalisation optionnelle des abréviations
+### "EMBEDDING_PROVIDER not found"
+Ensure `.env` exists and contains `EMBEDDING_PROVIDER=azure` or `local`
 
-## 📚 Guide d'utilisation pas à pas
+### "EMBEDDING_API_KEY not found" or "LLM_API_KEY not found"
+Check that all required environment variables are set in `.env` based on your chosen provider
 
-### Comment ajouter de nouveaux documents ?
+### "No module named 'sentence_transformers'"
+For local embeddings: `pip install sentence-transformers torch`
 
-1. **Placer les PDFs** dans le dossier `documents/`
-2. **Supprimer l'ancien index** (optionnel, pour forcer la réindexation):
-   ```bash
-   # Windows
-   rmdir /s storage
+### Local embeddings are slow
+- Set `EMBEDDING_DEVICE=cuda` if you have a GPU
+- Or switch to a smaller model: `sentence-transformers/all-MiniLM-L6-v2`
 
-   # Linux/MacOS
-   rm -rf storage
-   ```
-3. **Relancer l'application** - l'index sera recréé automatiquement
+### Poor response quality
+- Run `python preprocess_pdfs.py --preview` to check document quality
+- Enable `clean_text=True` in document processing
+- Lower LLM temperature for more factual responses: `LlmManager(temperature=0.3)`
 
-### Comment changer de modèle LLM ?
-
-1. **Ouvrir le fichier** [.env](.env)
-2. **Modifier** les variables selon le modèle souhaité:
-   ```env
-   LLM_MODEL_NAME=gpt-4  # ou llama-3.1-70b-versatile, etc.
-   ```
-3. **Redémarrer l'application**
-
-### Comment obtenir une clé API ?
-
-#### Pour Groq (gratuit):
-1. Créer un compte sur [console.groq.com](https://console.groq.com)
-2. Aller dans "API Keys"
-3. Créer une nouvelle clé
-4. Copier la clé dans votre fichier `.env`
-
-#### Pour Azure OpenAI:
-1. Créer une ressource Azure OpenAI dans le portail Azure
-2. Déployer un modèle (GPT-4, etc.)
-3. Récupérer la clé et l'endpoint dans les paramètres
-4. Ajouter dans `.env`:
-   ```env
-   API_KEY=votre_clé_azure
-   API_BASE_URL=https://votre-ressource.openai.azure.com/openai/v1/
-   ```
-
-### Comment améliorer la qualité des réponses ?
-
-1. **Nettoyer les PDFs** avant indexation:
-   ```bash
-   python preprocess_pdfs.py --preview
-   ```
-
-2. **Activer les options de nettoyage** dans votre code:
-   ```python
-   embedder = EmbedderRag(
-       clean_text=True,
-       remove_urls=True,
-       normalize_medical=True
-   )
-   ```
-
-3. **Évaluer avec RAGAS** pour mesurer la performance:
-   ```bash
-   python test_ragas.py
-   ```
-
-4. **Ajuster la température** du LLM dans [llm.py](llm.py:31):
-   - Température basse (0.1-0.5): Réponses plus précises et factuelles
-   - Température haute (0.7-1.0): Réponses plus créatives
-
-## ❓ Dépannage
-
-### Erreur: "La clé API_KEY n'est pas définie"
-- Vérifiez que le fichier `.env` existe à la racine du projet
-- Assurez-vous que la variable `API_KEY` est bien définie dans `.env`
-- Redémarrez l'application après modification du `.env`
-
-### Erreur: "No module named 'dotenv'"
+### Streamlit app won't start
 ```bash
-pip install python-dotenv
-```
-
-### Les réponses sont de mauvaise qualité
-- Analysez vos documents avec `python preprocess_pdfs.py --preview`
-- Activez le nettoyage automatique avec `clean_text=True`
-- Essayez un modèle LLM plus performant (GPT-4 vs GPT-3.5)
-- Réduisez la température du LLM pour plus de précision
-
-### L'application Streamlit ne se lance pas
-```bash
-# Vérifier que Streamlit est installé
 pip install streamlit
-
-# Lancer avec mode debug
 streamlit run app.py --logger.level=debug
 ```
+
+## 📋 Features
+
+### PDF Cleaning
+The system automatically cleans PDF documents for better RAG quality:
+
+- ✅ **Headers/footers** - Automatic detection and removal
+- ✅ **Page numbers** - Removal of page numbers
+- ✅ **Special characters** - Normalization of spaces, apostrophes
+- ✅ **Hyphenated words** - Correction of line-break hyphenation
+- ✅ **URLs and emails** - Optional removal
+- ✅ **Medical terms** - Optional abbreviation normalization
+
+---
+
+**Medical Disclaimer**: This chatbot is for informational purposes only and does not constitute medical advice. Consult a qualified healthcare professional for medical questions.

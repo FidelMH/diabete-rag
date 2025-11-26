@@ -12,7 +12,7 @@ from embedding_manager import EmbeddingManager
 
 class EmbedderRag:
     """
-    Classe modifiée pour gérer la persistance de l'index avec nettoyage des documents.
+    Modified class to manage index persistence with document cleaning.
     """
     def __init__(self,
                  input_path: str = "./documents",
@@ -23,16 +23,16 @@ class EmbedderRag:
                  remove_urls: bool = True,
                  normalize_medical: bool = False):
         """
-        Initialise l'EmbedderRag avec les configurations nécessaires.
+        Initialize EmbedderRag with necessary configurations.
 
         Args:
-            input_path: Chemin vers les documents
-            persist_dir: Dossier pour la persistance de l'index
-            chunk_size: Taille des chunks pour le découpage
-            chunk_overlap: Chevauchement entre les chunks
-            clean_text: Si True, nettoie le texte des documents
-            remove_urls: Si True, supprime les URLs et emails
-            normalize_medical: Si True, normalise les termes médicaux
+            input_path: Path to documents
+            persist_dir: Directory for index persistence
+            chunk_size: Chunk size for splitting
+            chunk_overlap: Overlap between chunks
+            clean_text: If True, clean document text
+            remove_urls: If True, remove URLs and emails
+            normalize_medical: If True, normalize medical terms
         """
         self.input_path = input_path
         self.persist_dir = persist_dir
@@ -40,8 +40,8 @@ class EmbedderRag:
         self.remove_urls = remove_urls
         self.normalize_medical = normalize_medical
 
-        # Configuration générique du modèle d'embedding via le manager
-        EmbeddingManager()
+        # Configure embedding model via manager
+        self.embedding_manager = EmbeddingManager()
 
         # Application des paramètres globaux à LlamaIndex
         Settings.chunk_size = chunk_size
@@ -51,55 +51,66 @@ class EmbedderRag:
 
     def build_or_load_index(self) -> BaseIndex:
         """
-        Charge l'index depuis le disque s'il existe, sinon le construit et le sauvegarde.
+        Load index from disk if it exists, otherwise build and save it.
         """
         if not os.path.exists(self.persist_dir):
-            # CAS 1: L'index n'existe pas, on le construit
-            print(f"Chargement des documents depuis '{self.input_path}'...")
+            # CASE 1: Index doesn't exist, build it
+            print(f"Loading documents from '{self.input_path}'...")
             if os.path.isdir(self.input_path):
                 reader = SimpleDirectoryReader(input_dir=self.input_path)
             else:
                 reader = SimpleDirectoryReader(input_files=[self.input_path])
             documents = reader.load_data()
 
-            print(f"✓ {len(documents)} document(s) chargé(s)")
+            print(f"✓ {len(documents)} document(s) loaded")
 
-            # Afficher les statistiques avant nettoyage
+            # Display statistics before cleaning
             if self.clean_text:
-                print("\n📊 Statistiques avant nettoyage:")
+                print("\n📊 Statistics before cleaning:")
                 stats_before = get_document_stats(documents)
                 for key, value in stats_before.items():
                     print(f"   {key}: {value:.2f}" if isinstance(value, float) else f"   {key}: {value}")
 
-                print("\n🧹 Nettoyage des documents en cours...")
+                print("\n🧹 Cleaning documents...")
                 documents = TextCleaner.clean_documents(
                     documents,
                     remove_urls=self.remove_urls,
                     normalize_medical=self.normalize_medical
                 )
 
-                print("✓ Nettoyage terminé!")
+                print("✓ Cleaning completed!")
 
-                # Afficher les statistiques après nettoyage
-                print("\n📊 Statistiques après nettoyage:")
+                # Display statistics after cleaning
+                print("\n📊 Statistics after cleaning:")
                 stats_after = get_document_stats(documents)
                 for key, value in stats_after.items():
                     print(f"   {key}: {value:.2f}" if isinstance(value, float) else f"   {key}: {value}")
 
-                # Calcul de la réduction
+                # Calculate reduction
                 reduction_chars = ((stats_before['total_characters'] - stats_after['total_characters']) /
                                  stats_before['total_characters'] * 100)
-                print(f"\n   Réduction du texte: {reduction_chars:.1f}%")
+                print(f"\n   Text reduction: {reduction_chars:.1f}%")
 
-            print("\n🔨 Création de l'index vectoriel (cela peut prendre du temps)...")
-            self.index = VectorStoreIndex.from_documents(documents)
+            print("\n🔨 Creating vector index (this may take some time)...")
+            provider = self.embedding_manager.provider
+            if provider == "local":
+                print(f"   Using local embeddings: {self.embedding_manager.embed_model.model_name}")
+                print(f"   Processing {len(documents)} document(s)...")
+                print(f"   This will generate embeddings for each text chunk.")
+            else:
+                print(f"   Using Azure OpenAI embeddings")
+                print(f"   Processing {len(documents)} document(s)...")
+
+            self.index = VectorStoreIndex.from_documents(documents, show_progress=True)
+
+            print(f"\n💾 Saving index to '{self.persist_dir}'...")
             self.index.storage_context.persist(persist_dir=self.persist_dir)
-            print(f"✓ Index sauvegardé dans '{self.persist_dir}'.")
+            print(f"✓ Index saved successfully.")
         else:
-            # CAS 2: L'index existe, on le charge
-            print(f"Chargement de l'index depuis '{self.persist_dir}'...")
+            # CASE 2: Index exists, load it
+            print(f"Loading index from '{self.persist_dir}'...")
             storage_context = StorageContext.from_defaults(persist_dir=self.persist_dir)
             self.index = load_index_from_storage(storage_context)
-            print("✓ Index chargé avec succès.")
+            print("✓ Index loaded successfully.")
 
         return self.index

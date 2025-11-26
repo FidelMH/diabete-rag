@@ -1,35 +1,59 @@
 import os
 from dotenv import load_dotenv
-# from llama_index.llms.groq import Groq
 from llama_index.llms.openai_like import OpenAILike
 from llama_index.core import Settings
 
 class LlmManager:
     """
-    Gère la configuration et l'initialisation du modèle de langage (LLM).
+    LLM manager for Azure OpenAI (or OpenAI-compatible APIs).
+
+    Note: This project uses Azure OpenAI exclusively for LLM.
+    For embeddings, see EmbeddingManager which supports both cloud and local.
     """
-    def __init__(self):
+
+    def __init__(self, temperature: float = 0.7):
         """
-        Initialise le LlmManager en chargeant la clé API et en configurant le LLM.
+        Initialize LLM with Azure OpenAI configuration.
 
         Args:
-            model_name (str): Le nom du modèle Groq à utiliser.
+            temperature: Sampling temperature (0.0-1.0)
+                - Low (0.1-0.5): More factual, deterministic responses
+                - High (0.7-1.0): More creative, diverse responses
         """
         load_dotenv()
-        API_KEY = os.getenv("API_KEY")
-        API_BASE_URL = os.getenv("API_BASE_URL")
-        LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
 
-        if not API_KEY:
-            raise ValueError("La clé API_KEY n'est pas définie dans le fichier .env")
-        if not API_BASE_URL:
-            raise ValueError("API_BASE_URL non trouvée dans le fichier .env")
-        if not LLM_MODEL_NAME:
-            raise ValueError("LLM_MODEL_NAME n'est pas définie dans le fichier .env")
+        api_key = os.getenv("LLM_API_KEY")
+        api_base = os.getenv("LLM_API_BASE")
+        model_name = os.getenv("LLM_MODEL_NAME")
 
-        print(f"Configuration du LLM avec l'API  (modèle '{LLM_MODEL_NAME}')...")
-        self.llm = OpenAILike(model=LLM_MODEL_NAME, api_key=API_KEY, api_base=API_BASE_URL,is_chat_model=True,temperature=1.0)
-        
-        # Appliquer ce LLM à la configuration globale pour qu'il soit utilisé partout
+        if not api_key:
+            raise ValueError("LLM_API_KEY not found in .env")
+        if not api_base:
+            raise ValueError("LLM_API_BASE not found in .env")
+        if not model_name:
+            raise ValueError("LLM_MODEL_NAME not found in .env")
+
+        print(f"Configuring LLM...")
+        print(f"  Model: {model_name}")
+        print(f"  Temperature: {temperature}")
+        print(f"  API: {api_base}")
+
+        self.llm = OpenAILike(
+            model=model_name,
+            api_key=api_key,
+            api_base=api_base,
+            is_chat_model=True,
+            temperature=temperature
+        )
+
+        # Apply to global settings
         Settings.llm = self.llm
-        print("LLM configuré avec succès.")
+        print("✓ LLM configured successfully.")
+
+    def get_config(self) -> dict:
+        """Return LLM configuration for downstream use."""
+        return {
+            "model_name": os.getenv("LLM_MODEL_NAME"),
+            "api_key": os.getenv("LLM_API_KEY"),
+            "api_base": os.getenv("LLM_API_BASE"),
+        }
