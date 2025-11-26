@@ -2,15 +2,15 @@ import streamlit as st
 from documents import EmbedderRag
 from llm import LlmManager
 
-# Configuration de la page
+# Page configuration
 st.set_page_config(
-    page_title="Assistant Diabète",
+    page_title="Diabetes Assistant",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# CSS personnalisé pour un design médical
+# Custom CSS for medical design
 st.markdown("""
     <style>
     .main {
@@ -38,118 +38,132 @@ st.markdown("""
 @st.cache_resource
 def initialize_rag():
     """
-    Initialise le système RAG (LLM + Index).
-    Cette fonction est mise en cache pour éviter de recharger le système à chaque interaction.
+    Initialize RAG system (LLM + Index).
+    This function is cached to avoid reloading the system on each interaction.
     """
-    with st.spinner("Initialisation du système RAG..."):
-        # Initialiser le LLM
-        LlmManager()
+    with st.spinner("Initializing RAG system..."):
+        # Initialize LLM
+        llm_manager = LlmManager()
 
-        # Construire ou charger l'index
+        # Build or load index
         embedder = EmbedderRag(input_path="./documents")
         index = embedder.build_or_load_index()
 
-        # Créer le moteur de requête
+        # Create query engine
         query_engine = index.as_query_engine(
             similarity_top_k=5,
             response_mode="compact"
         )
 
-    return query_engine
+        # Get configuration info
+        config = {
+            'llm_model': llm_manager.get_config()['model_name'],
+            'embedding_provider': embedder.embedding_manager.provider,
+            'embedding_model': embedder.embedding_manager.embed_model.model_name
+        }
+
+    return query_engine, config
 
 
 def main():
-    # Titre et description
-    st.title("🩺 Assistant Médical - Diabète")
+    # Title and description
+    st.title("🩺 Medical Assistant - Diabetes")
     st.markdown("""
-    Posez vos questions sur le diabète et obtenez des réponses basées sur des documents médicaux.
+    Ask your questions about diabetes and get answers based on medical documents.
     """)
 
-    # Sidebar avec informations
+    # Sidebar with information
     with st.sidebar:
-        st.header("📋 Informations")
+        st.header("📋 Information")
+        st.markdown("**Diabetes RAG System**")
+        st.markdown("---")
+
+        st.markdown("**🤖 Configuration:**")
+        st.markdown(f"- **LLM:** {config['llm_model']}")
+
+        if config['embedding_provider'] == 'azure':
+            st.markdown(f"- **Embeddings:** Azure OpenAI ({config['embedding_model']})")
+        else:
+            st.markdown(f"- **Embeddings:** Local ({config['embedding_model']})")
+
+        st.markdown("- **Framework:** LlamaIndex")
+        st.markdown("- **Documents:** Medical documents on diabetes")
+
+        st.markdown("---")
+
+        st.markdown("**Instructions:**")
         st.markdown("""
-        **Système RAG sur le Diabète**
-
-        Ce système utilise :
-        - LlamaIndex pour l'indexation
-        - Azure OpenAI (text-embedding-3-large) pour les embeddings
-        - Documents médicaux sur le diabète
-
-        ---
-
-        **Instructions :**
-        1. Tapez votre question dans le champ ci-dessous
-        2. Appuyez sur Entrée ou cliquez sur Envoyer
-        3. Attendez la réponse basée sur les documents
+        1. Type your question in the field below
+        2. Press Enter or click Send
+        3. Wait for the response based on documents
         """)
 
-        if st.button("🗑️ Effacer l'historique"):
+        if st.button("🗑️ Clear History"):
             st.session_state.messages = []
             st.rerun()
 
-    # Initialiser le système RAG
+    # Initialize RAG system
     try:
-        query_engine = initialize_rag()
+        query_engine, config = initialize_rag()
     except Exception as e:
-        st.error(f"Erreur lors de l'initialisation du système : {e}")
+        st.error(f"Error initializing system: {e}")
         st.stop()
 
-    # Initialiser l'historique des messages
+    # Initialize message history
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Afficher l'historique des messages
+    # Display message history
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Zone de saisie de la question
-    if prompt := st.chat_input("Posez votre question sur le diabète..."):
-        # Ajouter le message de l'utilisateur à l'historique
+    # Question input area
+    if prompt := st.chat_input("Ask your question about diabetes..."):
+        # Add user message to history
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # Afficher le message de l'utilisateur
+        # Display user message
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Générer et afficher la réponse
+        # Generate and display response
         with st.chat_message("assistant"):
-            with st.spinner("Génération de la réponse..."):
+            with st.spinner("Generating response..."):
                 try:
                     response = query_engine.query(prompt)
                     response_text = str(response)
 
-                    # Afficher la réponse
+                    # Display response
                     st.markdown(response_text)
 
-                    # Afficher les sources dans un expander
+                    # Display sources in an expander
                     if hasattr(response, 'source_nodes') and response.source_nodes:
-                        with st.expander("📚 Voir les sources"):
+                        with st.expander("📚 View Sources"):
                             for idx, node in enumerate(response.source_nodes, 1):
                                 st.markdown(f"**Source {idx}** (Score: {node.score:.3f})")
                                 st.text(node.text[:300] + "..." if len(node.text) > 300 else node.text)
                                 st.divider()
 
-                    # Ajouter la réponse à l'historique
+                    # Add response to history
                     st.session_state.messages.append({
                         "role": "assistant",
                         "content": response_text
                     })
 
                 except Exception as e:
-                    error_msg = f"Une erreur est survenue : {e}"
+                    error_msg = f"An error occurred: {e}"
                     st.error(error_msg)
                     st.session_state.messages.append({
                         "role": "assistant",
                         "content": error_msg
                     })
 
-    # Disclaimer sanitaire
+    # Medical disclaimer
     st.info("""
-        **Avertissement :** Ce chatbot est fourni à titre informatif uniquement et ne constitue en aucun cas un avis médical ou un dispositif médical.
-        Il ne remplace pas une consultation, un diagnostic ou un traitement dispensé par un professionnel de santé qualifié.
-        Pour toute question de santé, consultez toujours votre médecin.
+        **Warning:** This chatbot is provided for informational purposes only and does not constitute medical advice or a medical device.
+        It does not replace a consultation, diagnosis, or treatment provided by a qualified healthcare professional.
+        For any health questions, always consult your doctor.
     """)
 
 

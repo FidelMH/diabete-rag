@@ -30,14 +30,14 @@ Edit `.env` and configure your settings. Choose one of the following:
 ```env
 # Embeddings
 EMBEDDING_PROVIDER=azure
-EMBEDDING_API_KEY=your_azure_key
+EMBEDDING_API_KEY=your_azure_api_key_here
 EMBEDDING_API_BASE=https://your-resource.openai.azure.com/openai/v1/
-EMBEDDING_MODEL_NAME=text-embedding-3-large
+EMBEDDING_MODEL_NAME=your-embedder(ex : text-embedding-3-large)
 
 # LLM
-LLM_API_KEY=your_azure_key
+LLM_API_KEY=your_azure_api_key_here
 LLM_API_BASE=https://your-resource.openai.azure.com/openai/v1/
-LLM_MODEL_NAME=gpt-4
+LLM_MODEL_NAME=your-llm-model(ex : o4-mini)
 ```
 
 **Option B: Local Embeddings + Azure LLM (Development/Cost optimization)**
@@ -48,9 +48,9 @@ EMBEDDING_MODEL_NAME=BAAI/bge-large-en-v1.5
 EMBEDDING_DEVICE=cpu
 
 # LLM (Azure)
-LLM_API_KEY=your_azure_key
+LLM_API_KEY=your_azure_api_key_here
 LLM_API_BASE=https://your-resource.openai.azure.com/openai/v1/
-LLM_MODEL_NAME=gpt-4
+LLM_MODEL_NAME=your-llm-model(ex : o4-mini)
 ```
 
 **For local embeddings, install additional dependencies:**
